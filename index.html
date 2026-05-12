@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Route Cost AI</title>
+
+<style>
+body{
+    font-family: Arial;
+    max-width: 700px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+input{
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+button{
+    padding: 12px 20px;
+    cursor: pointer;
+}
+
+.card{
+    border:1px solid #ddd;
+    padding:15px;
+    margin-top:20px;
+    border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🚗 Route Cost AI</h1>
+
+<label>Nereden</label>
+<input id="from" value="Kadıköy İstanbul">
+
+<label>Nereye</label>
+<input id="to" value="İzmir Saat Kulesi">
+
+<button onclick="calculate()">Hesapla</button>
+
+<div id="results"></div>
+
+<script>
+
+async function calculate(){
+
+    const from = document.getElementById("from").value;
+    const to = document.getElementById("to").value;
+
+    document.getElementById("results").innerHTML = "Hesaplanıyor...";
+
+    try{
+
+        const response = await fetch(
+            "https://route-api-6usp.onrender.com/route-cost",
+            {
+                method:"POST",
+                headers:{
+                    "Content-Type":"application/json"
+                },
+                body: JSON.stringify({
+                    origin: from,
+                    destination: to
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        console.log(data);
+
+        let html = "";
+
+        html += `
+            <div class="card">
+                <h2>Sonuç</h2>
+                <p><b>KM:</b> ${data.km.toFixed(1)}</p>
+                <p><b>Süre:</b> ${data.time_min.toFixed(0)} dk</p>
+                <p><b>Yakıt:</b> ${data.fuel_l.toFixed(1)} L</p>
+                <p><b>Maliyet:</b> ${data.fuel_tl.toFixed(0)} TL</p>
+            </div>
+        `;
+
+        document.getElementById("results").innerHTML = html;
+
+    }catch(err){
+
+        console.error(err);
+
+        document.getElementById("results").innerHTML =
+            "HATA OLUŞTU";
+
+    }
+
+}
+
+</script>
+
+</body>
+</html>
