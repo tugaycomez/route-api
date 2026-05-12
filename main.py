@@ -5,7 +5,7 @@ import requests
 
 app = FastAPI()
 
-# CORS FIX
+# CORS (frontend için zorunlu)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,75 +15,71 @@ app.add_middleware(
 )
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+FUEL_PRICE = 63.5
+
 
 @app.get("/")
 def home():
     return {"status": "ok"}
 
+
 @app.post("/route-cost")
 def route_cost(data: dict):
 
-    origin = data["origin"]
-    destination = data["destination"]
+    origin = data.get("origin")
+    destination = data.get("destination")
+
+    if not origin or not destination:
+        return {"error": "origin or destination missing"}
 
     url = "https://maps.googleapis.com/maps/api/directions/json"
 
-    r = requests.get(url, params={
+    response = requests.get(url, params={
         "origin": origin,
         "destination": destination,
+        "alternatives": "true",
         "key": GOOGLE_API_KEY
     })
 
-   routes = r.json()["routes"]
+    json_data = response.json()
 
-result = []
+    routes = json_data.get("routes", [])
 
-for route in routes[:3]:
+    if len(routes) == 0:
+        return {"error": "no routes found", "google_response": json_data}
 
-    leg = route["legs"][0]
+    result = []
 
-    km = leg["distance"]["value"] / 1000
-    time_h = leg["duration"]["value"] / 3600
+    for i, route in enumerate(routes[:3]):
 
-    speed = km / time_h
+        leg = route["legs"][0]
 
-    if speed <= 90:
-        fuel_rate = 4
-    elif speed <= 110:
-        fuel_rate = 5
-    else:
-        fuel_rate = 6
+        km = leg["distance"]["value"] / 1000
+        time_h = leg["duration"]["value"] / 3600
 
-    fuel_l = (km * fuel_rate) / 100
-    fuel_price = 63.5
+        speed = km / time_h if time_h > 0 else 0
 
-    result.append({
-        "km": km,
-        "time_min": time_h * 60,
-        "fuel_l": fuel_l,
-        "fuel_tl": fuel_l * fuel_price
-    })
+        if speed <= 90:
+            fuel_rate = 4
+        elif speed <= 110:
+            fuel_rate = 5
+        else:
+            fuel_rate = 6
 
-return {"routes": result}
+        fuel_l = (km * fuel_rate) / 100
+        fuel_cost = fuel_l * FUEL_PRICE
 
-    km = route["distance"]["value"] / 1000
-    time_h = route["duration"]["value"] / 3600
-
-    speed = km / time_h
-
-    if speed <= 90:
-        fuel_rate = 4
-    elif speed <= 110:
-        fuel_rate = 5
-    else:
-        fuel_rate = 6
-
-    fuel_l = (km * fuel_rate) / 100
-    fuel_price = 63.5
+        result.append({
+            "route": f"Rota {i+1}",
+            "km": round(km, 1),
+            "time_min": round(time_h * 60, 0),
+            "fuel_l": round(fuel_l, 1),
+            "fuel_tl": round(fuel_cost, 0),
+            "total": round(fuel_cost, 0)
+        })
 
     return {
-        "km": km,
-        "time_min": time_h * 60,
-        "fuel_l": fuel_l,
-        "fuel_tl": fuel_l * fuel_price
+        "origin": origin,
+        "destination": destination,
+        "routes": result
     }
